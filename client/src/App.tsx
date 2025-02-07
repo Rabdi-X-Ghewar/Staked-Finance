@@ -3,7 +3,7 @@
 // import viteLogo from '/vite.svg'
 import './App.css'
 
-import Home from './pages/dashboard'
+import Home from './pages/Dashboard'
 import RootLayout from './pages/layout'
 
 function App() {

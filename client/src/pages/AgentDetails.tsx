@@ -1,126 +1,214 @@
-import React, { useState, useEffect, KeyboardEvent, ChangeEvent } from 'react';
-import axios from 'axios';
-import { ArrowLeft, Search, Send } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { ScrollArea } from '../components/ui/scroll-area';
-import { Separator } from '../components/ui/separator';
+import React, { useState, useEffect, useRef } from "react";
+import { ArrowLeft, Send } from "lucide-react";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { ScrollArea } from "../components/ui/scroll-area";
+// import { Separator } from "../components/ui/separator";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+// Interfaces
+
 interface Message {
-  type: 'user' | 'ai';
+  type: "user" | "ai";
   content: string;
   timestamp: Date;
 }
+interface Asset {
+  name: string;
+  rewardRate: string;
+  logo: string;
+  type: "asset";
+}
 
-interface CardData {
+interface Provider {
+  name: string;
+  aum: string;
+  logo: string;
+  type: "provider";
+}
+
+interface AgentDetails {
   agentName: string;
-  mindshare: string;
+  mindshare: number;
   marketCap: string;
   price: string;
   holdersCount: number;
+  type: "agent_details";
 }
 
-interface ChatResponse {
-  success: boolean;
-  response: string;
-  cardData: CardData | null;
+interface AgentListItem {
+  name: string;
+  mindshare: number;
+  marketCap: string;
+  type: "agent_card";
+}
+
+interface EthereumMetrics {
+  currentRate: string;
+  historicalRates: Array<{
+    rate: string;
+    date: string;
+  }>;
+  type: "metrics";
 }
 
 const AgentDetails: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState<string>('');
-  const [sessionId, setSessionId] = useState<string>('');
-  const [cardData, setCardData] = useState<CardData | null>(null);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [currentCard, setCurrentCard] = useState<any>(null);
+  const [input, setInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  // Reference for auto-scrolling
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Generate a random session ID when component mounts
-    setSessionId(Math.random().toString(36).substring(7));
-  }, []);
+  const ws = useRef<WebSocket | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!input.trim()) return;
+  useEffect(() => {
+    // Connect to WebSocket
+    ws.current = new WebSocket("ws://localhost:3000");
+
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log("data", data);
+
+      switch (data.type) {
+        case "message":
+          setMessages((prev) => [
+            ...prev,
+            {
+              type: "ai",
+              content: data.content,
+              timestamp: new Date(data.timestamp),
+            },
+          ]);
+          break;
+
+        case "tools":
+          try {
+            // Parse the tool response content
+            const toolData = JSON.parse(data.content);
+            console.log("Parsed tool data:", toolData);
+
+            if (toolData.error) {
+              console.error("Tool error:", toolData.message);
+              return;
+            }
+
+            // Handle different tool responses
+            if (toolData.type === "assets") {
+              setCurrentCard({
+                type: "assets",
+                items: toolData.items.map((asset: any) => ({
+                  name: asset.name,
+                  rewardRate:
+                    asset.rewardRate,
+                  logo: asset.logo,
+                  type: "asset",
+                })),
+              });
+            } else if ("agents" in toolData) {
+              setCurrentCard({
+                type: "agents_list",
+                items: toolData.agents.map((agent: any) => ({
+                  name: agent.name,
+                  mindshare: agent.mindshare,
+                  marketCap: agent.marketCap,
+                  type: "agent_card",
+                })),
+              });
+            } else if ("name" in toolData) {
+              // Single agent response
+              setCurrentCard({
+                type: "agent_details",
+                agentName: toolData.name,
+                mindshare: toolData.mindshare,
+                marketCap: toolData.marketCap,
+                price: toolData.price,
+                holdersCount: toolData.holdersCount,
+              });
+            }
+          } catch (error) {
+            console.error("Error parsing tool response:", error);
+          }
+          break;
+
+        case "error":
+          console.error("Server error:", data.content);
+          break;
+      }
+    };
+    return () => ws.current?.close();
+  }, []);
+
+  const handleSendMessage = () => {
+    if (!input.trim() || !ws.current) return;
 
     setIsLoading(true);
-    try {
-      const username = input.match(/agent\s+(\w+)/i)?.[1];
-      const endpoint = username
-        ? `http://localhost:3000/api/chat/agent/${username}`
-        : 'http://localhost:3000/api/chat';
+    // Add user message to chat
+    setMessages((prev) => [
+      ...prev,
+      {
+        type: "user",
+        content: input,
+        timestamp: new Date(),
+      },
+    ]);
 
-      const response = await axios.post<ChatResponse>(endpoint, {
-        message: input,
-        sessionId,
-      });
+    // Send message through WebSocket
+    ws.current.send(
+      JSON.stringify({
+        content: input,
+      })
+    );
 
-      if (response.data.success) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            type: 'user',
-            content: input,
-            timestamp: new Date(),
-          },
-          {
-            type: 'ai',
-            content: response.data.response,
-            timestamp: new Date(),
-          },
-        ]);
-
-        if (response.data.cardData) {
-          setCardData(response.data.cardData);
-        }
-      }
-
-      setInput('');
-    } catch (error) {
-      console.error('Error sending message:', error);
-      // Add error message to chat
-      setMessages((prev) => [
-        ...prev,
-        {
-          type: 'ai',
-          content: 'Sorry, there was an error processing your request.',
-          timestamp: new Date(),
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setInput(e.target.value);
-  };
-
-  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    setInput("");
+    setIsLoading(false);
   };
 
   const formatTimestamp = (date: Date): string => {
     return date.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
+const renderCard = () => {
+  if (!currentCard) return null;
+
+  try {
+    switch (currentCard.type) {
+      case "assets":
+        return <StakingAssetsCard assets={currentCard.items} />;
+
+      case "providers":
+        return <ProvidersCard providers={currentCard.items} />;
+
+      case "agent_details":
+        return <AgentDetailsCard data={currentCard} />;
+
+      case "agents_list":
+        return <AgentsListCard agents={currentCard.items} />;
+
+      case "metrics":
+        return <EthereumMetricsCard data={currentCard} />;
+
+      default:
+        return <ErrorCard message="Unknown card type" />;
+    }
+  } catch (error) {
+    return (
+      <ErrorCard
+        message={error instanceof Error ? error.message : "An error occurred"}
+      />
+    );
+  }
+};
   return (
-    <div className="flex  w-full h-screen bg-gray-50">
-      {/* Sidebar - Chat Interface */}
+    <div className="flex w-full h-screen bg-gray-50">
+      {/* Chat Interface */}
       <div className="w-[570px] border-r bg-white flex flex-col h-full">
         <div className="flex h-16 items-center gap-2 border-b px-4">
           <Button variant="ghost" size="icon" className="shrink-0">
@@ -130,17 +218,7 @@ const AgentDetails: React.FC = () => {
             AI Assistant
           </div>
         </div>
-        <div className="p-4">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-7 text-gray-500" />
-            <Input
-              placeholder="Search messages..."
-              className="pl-8"
-              // Implement search functionality as needed
-            />
-          </div>
-        </div>
-        <ScrollArea className="flex-1 p-4 overflow-y-auto">
+        <ScrollArea className="flex-1 p-4">
           <div className="flex flex-col gap-2">
             {messages.map((msg, index) => (
               <div
@@ -152,7 +230,9 @@ const AgentDetails: React.FC = () => {
                 } max-w-[80%]`}
               >
                 {msg.type === "ai" ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {msg.content}
+                  </ReactMarkdown>
                 ) : (
                   <p className="text-sm">{msg.content}</p>
                 )}
@@ -169,97 +249,200 @@ const AgentDetails: React.FC = () => {
             <Input
               placeholder="Type your message..."
               value={input}
-              onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
               disabled={isLoading}
             />
-            <Button onClick={sendMessage} size="icon" disabled={isLoading}>
-              {isLoading ? (
-                <svg
-                  className="animate-spin h-5 w-5"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>
-              ) : (
-                <Send className="h-4 w-4 rounded-xl" />
-              )}
+            <Button
+              onClick={handleSendMessage}
+              size="icon"
+              disabled={isLoading}
+            >
+              <Send className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Main Content - Exploration */}
-      <div className="flex-1 p-6  overflow-y-auto">
-        {/* If cardData is available, show agent details */}
-        {cardData ? (
-  <div className="bg-gradient-to-br m-auto from-gray-900 to-gray-800 shadow-2xl rounded-3xl p-6 max-w-md text-white border border-gray-700">
-    <h2 className="text-2xl font-bold text-center text-white">{cardData.agentName}</h2>
-    <Separator className="my-4 bg-gray-600" />
-    
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-300">Mindshare:</p>
-        <span className="font-semibold text-lg text-gray-100">{cardData.mindshare}</span>
-      </div>
-
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-300">Market Cap:</p>
-        <span className="font-semibold text-lg text-green-400">${cardData.marketCap}</span>
-      </div>
-
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-300">Price:</p>
-        <span className="font-semibold text-lg text-blue-400">${cardData.price}</span>
-      </div>
-
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-300">Holders:</p>
-        <span className="font-semibold text-lg text-yellow-300">{cardData.holdersCount}</span>
-      </div>
-    </div>
-  </div>
-) : (
-  <div className="text-center text-gray-500">
-    <p>No agent selected. Start a conversation to explore data.</p>
-  </div>
-)}
-
-        {/* Additional Exploration Section */}
-        <div className="mt-6">
-          <h3 className="text-lg font-semibold text-gray-900">Explore More</h3>
-          <Separator className="my-2" />
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {/* Example Placeholder Cards */}
-            <div className="bg-white p-4 rounded-lg shadow-md">
-              <h4 className="text-sm font-medium text-gray-800">Related Agents</h4>
-              <p className="text-xs text-gray-600">Discover similar AI agents.</p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-md">
-              <h4 className="text-sm font-medium text-gray-800">Market Trends</h4>
-              <p className="text-xs text-gray-600">Latest insights on market cap fluctuations.</p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-md">
-              <h4 className="text-sm font-medium text-gray-800">AI Insights</h4>
-              <p className="text-xs text-gray-600">How AI agents impact the industry.</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Card Display Area */}
+      <div className="flex-1 p-6 overflow-y-auto">{renderCard()}</div>
     </div>
   );
 };
+
+// Card Components
+
+const StakingAssetsCard: React.FC<{ assets: Asset[] }> = ({ assets }) => (
+  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+    {assets.map((asset, idx) => (
+      <div
+        key={idx}
+        className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-shadow"
+      >
+        <div className="flex items-center gap-3 mb-3">
+          <img
+            src={asset.logo}
+            alt={asset.name}
+            className="w-12 h-12 rounded-full"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = "/fallback-asset-image.png"; // Add a fallback image
+            }}
+          />
+          <h3 className="font-semibold text-lg">{asset.name}</h3>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">APR</span>
+          <span className="text-green-600 font-semibold">
+            {asset.rewardRate}%
+          </span>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const ProvidersCard: React.FC<{ providers: Provider[] }> = ({ providers }) => (
+  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+    {providers.map((provider, idx) => (
+      <div
+        key={idx}
+        className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-shadow"
+      >
+        <div className="flex items-center gap-3 mb-3">
+          <img
+            src={provider.logo}
+            alt={provider.name}
+            className="w-12 h-12 rounded-full"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = "/fallback-provider-image.png";
+            }}
+          />
+          <h3 className="font-semibold text-lg">{provider.name}</h3>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">AUM</span>
+          <span className="text-blue-600 font-semibold">{provider.aum}</span>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const AgentDetailsCard: React.FC<{ data: AgentDetails }> = ({ data }) => (
+  <div className="bg-white rounded-xl shadow-md p-6">
+    <h2 className="text-2xl font-bold mb-6">{data.agentName}</h2>
+    <div className="grid grid-cols-2 gap-4">
+      <div className="p-4 bg-gray-50 rounded-lg">
+        <p className="text-sm text-gray-600">Mindshare</p>
+        <p className="text-lg font-semibold">{data.mindshare}%</p>
+      </div>
+      <div className="p-4 bg-gray-50 rounded-lg">
+        <p className="text-sm text-gray-600">Market Cap</p>
+        <p className="text-lg font-semibold">{data.marketCap}</p>
+      </div>
+      <div className="p-4 bg-gray-50 rounded-lg">
+        <p className="text-sm text-gray-600">Price</p>
+        <p className="text-lg font-semibold">{data.price}</p>
+      </div>
+      <div className="p-4 bg-gray-50 rounded-lg">
+        <p className="text-sm text-gray-600">Holders</p>
+        <p className="text-lg font-semibold">{data.holdersCount}</p>
+      </div>
+    </div>
+  </div>
+);
+
+const AgentsListCard: React.FC<{ agents: AgentListItem[] }> = ({ agents }) => (
+  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+    {agents.map((agent, idx) => (
+      <div
+        key={idx}
+        className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-shadow"
+      >
+        <h3 className="font-semibold text-lg mb-3">{agent.name}</h3>
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Mindshare</span>
+            <span className="text-blue-600 font-semibold">
+              {agent.mindshare}%
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Market Cap</span>
+            <span className="text-blue-600 font-semibold">
+              {agent.marketCap}
+            </span>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const EthereumMetricsCard: React.FC<{ data: EthereumMetrics }> = ({ data }) => (
+  <div className="bg-white rounded-xl shadow-md p-6">
+    <h2 className="text-2xl font-bold mb-6">Ethereum Staking Metrics</h2>
+    <div className="mb-8">
+      <p className="text-gray-600 mb-2">Current APR</p>
+      <p className="text-3xl font-bold text-green-600">{data.currentRate}%</p>
+    </div>
+    <div className="space-y-4">
+      <h3 className="font-semibold text-lg">Historical Rates</h3>
+      <div className="space-y-2">
+        {data.historicalRates.map((rate, idx) => (
+          <div
+            key={idx}
+            className="flex justify-between items-center p-2 hover:bg-gray-50 rounded"
+          >
+            <span className="text-gray-600">
+              {new Date(rate.date).toLocaleDateString()}
+            </span>
+            <span className="font-medium">{rate.rate}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+// Loading Card Component
+// const LoadingCard: React.FC = () => (
+//   <div className="bg-white rounded-xl shadow-md p-6 animate-pulse">
+//     <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
+//     <div className="grid grid-cols-2 gap-4">
+//       {[1, 2, 3, 4].map((i) => (
+//         <div key={i} className="p-4 bg-gray-100 rounded-lg">
+//           <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+//           <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+//         </div>
+//       ))}
+//     </div>
+//   </div>
+// );
+
+// Error Card Component
+const ErrorCard: React.FC<{ message: string }> = ({ message }) => (
+  <div className="bg-white rounded-xl shadow-md p-6">
+    <div className="flex items-center gap-3 text-red-500 mb-4">
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+      <h3 className="font-semibold text-lg">Error Loading Data</h3>
+    </div>
+    <p className="text-gray-600">{message}</p>
+  </div>
+);
 
 export default AgentDetails;
