@@ -1,6 +1,7 @@
-![Screenshot 2025-02-07 235209](https://github.com/user-attachments/assets/9583b07f-585a-4790-8360-0dde9760ca56)
 Plutus - The Ultimate Staking and Onchain AI Agent
-Plutus Logo <!-- Replace with your actual logo -->
+Plutus![plutus_logo](https://github.com/user-attachments/assets/258bf5e6-175b-447e-80d4-f322b2634cf9)
+ 
+![Screenshot 2025-02-07 235209](https://github.com/user-attachments/assets/9583b07f-585a-4790-8360-0dde9760ca56)
 
 Plutus is a cutting-edge decentralized application (dApp) that combines the power of blockchain, AI, and automation to provide users with a seamless experience for token analysis, staking, and onchain insights. Built using modern web3 technologies, Plutus empowers users to make informed decisions about their investments while automating key processes like token discovery and staking.
 
