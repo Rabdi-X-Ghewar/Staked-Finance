@@ -47,7 +47,7 @@ const AgentDetails: React.FC = () => {
 
   useEffect(() => {
     // Connect to WebSocket
-    ws.current = new WebSocket("ws://localhost:8080");
+    ws.current = new WebSocket("https://pluto-agent.onrender.com");
 
     ws.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -65,7 +65,7 @@ const AgentDetails: React.FC = () => {
             },
           ]);
           break;
-          
+
         case "message":
           setMessages((prev) => [
             ...prev,
