@@ -56,7 +56,7 @@ bash
 Copy
 1
 2
-git clone https://github.com/yourusername/plutus.git
+git clone [https://github.com/yourusername/plutus.git](https://github.com/Rabdi-X-Ghewar/pluto)
 cd plutus
 Install dependencies:
 bash
