@@ -1,5 +1,4 @@
-Plutus - The Ultimate Staking and Onchain AI Agent
-Plutus![plutus_logo](https://github.com/user-attachments/assets/258bf5e6-175b-447e-80d4-f322b2634cf9)
+Plutus - The Ultimate Staking and Onchain AI Agent               Plutus![plutus_logo](https://github.com/user-attachments/assets/258bf5e6-175b-447e-80d4-f322b2634cf9)
  
 ![Screenshot 2025-02-07 235209](https://github.com/user-attachments/assets/9583b07f-585a-4790-8360-0dde9760ca56)
 
