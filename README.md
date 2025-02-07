@@ -2,11 +2,11 @@
 
  ![](https://github.com/user-attachments/assets/258bf5e6-175b-447e-80d4-f322b2634cf9)
 
-[                                                                                                                                                                                                                      ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[                                                                                                                                                                                                                      ![Twitter Follow](https://img.shields.io/twitter/follow/plutus?style=social)](https://twitter.com/plutus)
-[                                                                                                                                                                                                                      ![GitHub Stars](https://img.shields.io/github/stars/plutus/plutus?style=social)](https://github.com/plutus/plutus)
+[                                                                                                                                                                                                                       ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[                                                                                                                                                                                                                       ![Twitter Follow](https://img.shields.io/twitter/follow/plutus?style=social)](https://twitter.com/plutus)
+[                                                                                                                                                                                                                       ![GitHub Stars](https://img.shields.io/github/stars/plutus/plutus?style=social)](https://github.com/plutus/plutus)
 
-## Workflow                                                                                                                                                                                                                     ![](https://github.com/user-attachments/assets/9583b07f-585a-4790-8360-0dde9760ca56)
+## Workflow                                                                                                                                                                                                                      ![](https://github.com/user-attachments/assets/9583b07f-585a-4790-8360-0dde9760ca56)
 
 
 ## 🚀 Overview
@@ -367,6 +367,7 @@ Our carefully selected technology stack ensures high performance, scalability, a
 
 
 
+
 1. **Clone the repository**
 
    ```bash
@@ -424,6 +425,7 @@ graph LR
 ## 🤝 Contributing
 
 We love contributions! Here's how you can help:
+
 
 
 
