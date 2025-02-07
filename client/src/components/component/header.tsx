@@ -41,7 +41,7 @@ export function Header() {
               </Button>
             </Link>
             <Button asChild className="hidden sm:flex px-4">
-              <Link to="/login">Get Started</Link>
+              <Link to="/agent">Get Started</Link>
             </Button>
             <Button variant="ghost" size="icon" className="sm:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
               {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

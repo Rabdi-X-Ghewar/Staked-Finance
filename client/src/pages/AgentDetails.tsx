@@ -14,19 +14,6 @@ interface Message {
   content: string;
   timestamp: Date;
 }
-interface Asset {
-  name: string;
-  rewardRate: string;
-  logo: string;
-  type: "asset";
-}
-
-interface Provider {
-  name: string;
-  aum: string;
-  logo: string;
-  type: "provider";
-}
 
 interface AgentDetails {
   agentName: string;
@@ -44,14 +31,6 @@ interface AgentListItem {
   type: "agent_card";
 }
 
-interface EthereumMetrics {
-  currentRate: string;
-  historicalRates: Array<{
-    rate: string;
-    date: string;
-  }>;
-  type: "metrics";
-}
 
 const AgentDetails: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([]);
@@ -68,13 +47,25 @@ const AgentDetails: React.FC = () => {
 
   useEffect(() => {
     // Connect to WebSocket
-    ws.current = new WebSocket("ws://localhost:3000");
+    ws.current = new WebSocket("ws://localhost:8080");
 
     ws.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
       console.log("data", data);
 
       switch (data.type) {
+        case "connection":
+          console.log("Connected to server:", data.content);
+          setMessages((prev) => [
+            ...prev,
+            {
+              type: "ai",
+              content: data.content,
+              timestamp: new Date(),
+            },
+          ]);
+          break;
+          
         case "message":
           setMessages((prev) => [
             ...prev,
@@ -98,36 +89,25 @@ const AgentDetails: React.FC = () => {
             }
 
             // Handle different tool responses
-            if (toolData.type === "assets") {
-              setCurrentCard({
-                type: "assets",
-                items: toolData.items.map((asset: any) => ({
-                  name: asset.name,
-                  rewardRate:
-                    asset.rewardRate,
-                  logo: asset.logo,
-                  type: "asset",
-                })),
-              });
-            } else if ("agents" in toolData) {
+            if (toolData.ok.currentPage === 1) {
               setCurrentCard({
                 type: "agents_list",
-                items: toolData.agents.map((agent: any) => ({
-                  name: agent.name,
-                  mindshare: agent.mindshare,
-                  marketCap: agent.marketCap,
+                items: toolData.ok.data.map((agent: any) => ({
+                  name: agent.agentName,
+                  mindshare: agent.mindshare.toFixed(2),
+                  marketCap: agent.mindshareDeltaPercent.toFixed(2),
                   type: "agent_card",
                 })),
               });
-            } else if ("name" in toolData) {
+            } else if (toolData.ok.agentName !== "") {
               // Single agent response
               setCurrentCard({
                 type: "agent_details",
-                agentName: toolData.name,
-                mindshare: toolData.mindshare,
-                marketCap: toolData.marketCap,
-                price: toolData.price,
-                holdersCount: toolData.holdersCount,
+                agentName: toolData.ok.agentName,
+                mindshare: toolData.ok.mindshare,
+                marketCap: toolData.ok.marketCap,
+                price: toolData.ok.price,
+                holdersCount: toolData.ok.holdersCount,
               });
             }
           } catch (error) {
@@ -180,20 +160,11 @@ const renderCard = () => {
 
   try {
     switch (currentCard.type) {
-      case "assets":
-        return <StakingAssetsCard assets={currentCard.items} />;
-
-      case "providers":
-        return <ProvidersCard providers={currentCard.items} />;
-
       case "agent_details":
         return <AgentDetailsCard data={currentCard} />;
 
       case "agents_list":
         return <AgentsListCard agents={currentCard.items} />;
-
-      case "metrics":
-        return <EthereumMetricsCard data={currentCard} />;
 
       default:
         return <ErrorCard message="Unknown card type" />;
@@ -272,63 +243,7 @@ const renderCard = () => {
 
 // Card Components
 
-const StakingAssetsCard: React.FC<{ assets: Asset[] }> = ({ assets }) => (
-  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-    {assets.map((asset, idx) => (
-      <div
-        key={idx}
-        className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-shadow"
-      >
-        <div className="flex items-center gap-3 mb-3">
-          <img
-            src={asset.logo}
-            alt={asset.name}
-            className="w-12 h-12 rounded-full"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = "/fallback-asset-image.png"; // Add a fallback image
-            }}
-          />
-          <h3 className="font-semibold text-lg">{asset.name}</h3>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">APR</span>
-          <span className="text-green-600 font-semibold">
-            {asset.rewardRate}%
-          </span>
-        </div>
-      </div>
-    ))}
-  </div>
-);
 
-const ProvidersCard: React.FC<{ providers: Provider[] }> = ({ providers }) => (
-  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-    {providers.map((provider, idx) => (
-      <div
-        key={idx}
-        className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-shadow"
-      >
-        <div className="flex items-center gap-3 mb-3">
-          <img
-            src={provider.logo}
-            alt={provider.name}
-            className="w-12 h-12 rounded-full"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = "/fallback-provider-image.png";
-            }}
-          />
-          <h3 className="font-semibold text-lg">{provider.name}</h3>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">AUM</span>
-          <span className="text-blue-600 font-semibold">{provider.aum}</span>
-        </div>
-      </div>
-    ))}
-  </div>
-);
 
 const AgentDetailsCard: React.FC<{ data: AgentDetails }> = ({ data }) => (
   <div className="bg-white rounded-xl shadow-md p-6">
@@ -381,46 +296,6 @@ const AgentsListCard: React.FC<{ agents: AgentListItem[] }> = ({ agents }) => (
   </div>
 );
 
-const EthereumMetricsCard: React.FC<{ data: EthereumMetrics }> = ({ data }) => (
-  <div className="bg-white rounded-xl shadow-md p-6">
-    <h2 className="text-2xl font-bold mb-6">Ethereum Staking Metrics</h2>
-    <div className="mb-8">
-      <p className="text-gray-600 mb-2">Current APR</p>
-      <p className="text-3xl font-bold text-green-600">{data.currentRate}%</p>
-    </div>
-    <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Historical Rates</h3>
-      <div className="space-y-2">
-        {data.historicalRates.map((rate, idx) => (
-          <div
-            key={idx}
-            className="flex justify-between items-center p-2 hover:bg-gray-50 rounded"
-          >
-            <span className="text-gray-600">
-              {new Date(rate.date).toLocaleDateString()}
-            </span>
-            <span className="font-medium">{rate.rate}%</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-// Loading Card Component
-// const LoadingCard: React.FC = () => (
-//   <div className="bg-white rounded-xl shadow-md p-6 animate-pulse">
-//     <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
-//     <div className="grid grid-cols-2 gap-4">
-//       {[1, 2, 3, 4].map((i) => (
-//         <div key={i} className="p-4 bg-gray-100 rounded-lg">
-//           <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-//           <div className="h-6 bg-gray-200 rounded w-3/4"></div>
-//         </div>
-//       ))}
-//     </div>
-//   </div>
-// );
 
 // Error Card Component
 const ErrorCard: React.FC<{ message: string }> = ({ message }) => (
