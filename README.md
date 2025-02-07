@@ -1,4 +1,4 @@
-🌟 Pluto
+# 🌟 Pluto
 
  ![](https://github.com/user-attachments/assets/258bf5e6-175b-447e-80d4-f322b2634cf9)
 
@@ -161,8 +161,7 @@ Our carefully selected technology stack ensures high performance, scalability, a
 ✓ Twitter Developer Account
 ```
 
-> \
-> ## 🔧 Installation
+## 🔧 Installation
 
 
 
