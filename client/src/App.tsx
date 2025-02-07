@@ -12,7 +12,7 @@ function App() {
 
   return (
     <>
-      <div className="flex  w-full h-screen bg-gray-50">
+      <div className="flex  w-full h-screen bg-gray-900">
         <RootLayout>
           <Routes>
             <Route path="/" element={<Home />} />

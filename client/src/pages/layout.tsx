@@ -1,6 +1,6 @@
 // import { GeistMono } from "next/font/google"
 import { ThemeProvider } from "../components/component/theme-provider"
-import { Header } from "../components/component/header"
+// import { Header } from "../components/component/header"
 // import { Footer } from "../components/component/footer"
 import "../index.css"
 
@@ -15,7 +15,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          <Header />
+          {/* <Header /> */}
           <main>{children}</main>
           {/* <Footer /> */}
         </ThemeProvider>

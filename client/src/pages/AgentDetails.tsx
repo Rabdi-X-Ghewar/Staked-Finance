@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Send, AlertCircle } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { ScrollArea } from "../components/ui/scroll-area";
-// import { Separator } from "../components/ui/separator";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { cn } from "../lib/utils";
 
 // Interfaces
-
 interface Message {
   type: "user" | "ai";
   content: string;
@@ -31,22 +30,19 @@ interface AgentListItem {
   type: "agent_card";
 }
 
-
 const AgentDetails: React.FC = () => {
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [currentCard, setCurrentCard] = useState<any>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentCard, setCurrentCard] = useState<any>(null);
   const [input, setInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const ws = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
-    // Connect to WebSocket
     ws.current = new WebSocket("https://pluto-agent.onrender.com");
 
     ws.current.onmessage = (event) => {
@@ -67,19 +63,21 @@ const AgentDetails: React.FC = () => {
           break;
 
         case "message":
-          setMessages((prev) => [
-            ...prev,
-            {
-              type: "ai",
-              content: data.content,
-              timestamp: new Date(data.timestamp),
-            },
-          ]);
+          if (data.content) {
+            setMessages((prev) => [
+              ...prev,
+              {
+                type: "ai",
+                content: data.content,
+                timestamp: new Date(data.timestamp),
+              },
+            ]);
+          }
+
           break;
 
         case "tools":
           try {
-            // Parse the tool response content
             const toolData = JSON.parse(data.content);
             console.log("Parsed tool data:", toolData);
 
@@ -88,8 +86,7 @@ const AgentDetails: React.FC = () => {
               return;
             }
 
-            // Handle different tool responses
-            if (toolData.ok.currentPage === 1) {
+            if (toolData.ok.currentPage >= 1) {
               setCurrentCard({
                 type: "agents_list",
                 items: toolData.ok.data.map((agent: any) => ({
@@ -100,7 +97,6 @@ const AgentDetails: React.FC = () => {
                 })),
               });
             } else if (toolData.ok.agentName !== "") {
-              // Single agent response
               setCurrentCard({
                 type: "agent_details",
                 agentName: toolData.ok.agentName,
@@ -127,7 +123,6 @@ const AgentDetails: React.FC = () => {
     if (!input.trim() || !ws.current) return;
 
     setIsLoading(true);
-    // Add user message to chat
     setMessages((prev) => [
       ...prev,
       {
@@ -137,7 +132,6 @@ const AgentDetails: React.FC = () => {
       },
     ]);
 
-    // Send message through WebSocket
     ws.current.send(
       JSON.stringify({
         content: input,
@@ -155,59 +149,65 @@ const AgentDetails: React.FC = () => {
     });
   };
 
-const renderCard = () => {
-  if (!currentCard) return null;
+  const renderCard = () => {
+    if (!currentCard) return null;
 
-  try {
-    switch (currentCard.type) {
-      case "agent_details":
-        return <AgentDetailsCard data={currentCard} />;
-
-      case "agents_list":
-        return <AgentsListCard agents={currentCard.items} />;
-
-      default:
-        return <ErrorCard message="Unknown card type" />;
+    try {
+      switch (currentCard.type) {
+        case "agent_details":
+          return <AgentDetailsCard data={currentCard} />;
+        case "agents_list":
+          return <AgentsListCard agents={currentCard.items} />;
+        default:
+          return <ErrorCard message="Unknown card type" />;
+      }
+    } catch (error) {
+      return (
+        <ErrorCard
+          message={error instanceof Error ? error.message : "An error occurred"}
+        />
+      );
     }
-  } catch (error) {
-    return (
-      <ErrorCard
-        message={error instanceof Error ? error.message : "An error occurred"}
-      />
-    );
-  }
-};
+  };
+
   return (
-    <div className="flex w-full h-screen bg-gray-50">
-      {/* Chat Interface */}
-      <div className="w-[570px] border-r bg-white flex flex-col h-full">
-        <div className="flex h-16 items-center gap-2 border-b px-4">
-          <Button variant="ghost" size="icon" className="shrink-0">
-            <ArrowLeft className="h-5 w-5" />
+    <div className="flex w-full h-screen bg-gray-950">
+      <div className="w-[570px] border-r border-gray-800 bg-gray-900 flex flex-col h-full">
+        <div className="flex h-16 items-center gap-2 border-b border-gray-800 px-4 bg-gray-900">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0 hover:bg-gray-800 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-400" />
           </Button>
-          <div className="flex items-center gap-2 text-lg font-semibold">
+          <div className="flex items-center gap-2 text-xl font-semibold text-gray-100">
             AI Assistant
           </div>
         </div>
-        <ScrollArea className="flex-1 p-4">
-          <div className="flex flex-col gap-2">
+        <ScrollArea className="flex-1 px-4 py-6">
+          <div className="flex flex-col gap-4">
             {messages.map((msg, index) => (
               <div
                 key={index}
-                className={`rounded-3xl p-3 ${
+                className={cn(
+                  "rounded-2xl p-4 transition-all duration-200",
                   msg.type === "user"
-                    ? "ml-auto bg-blue-500 text-white"
-                    : "bg-gray-100 text-gray-800"
-                } max-w-[80%]`}
+                    ? "ml-auto bg-blue-600 text-gray-100 max-w-[80%] hover:bg-blue-700"
+                    : "bg-gray-800 text-gray-100 max-w-[80%] hover:bg-gray-700"
+                )}
               >
                 {msg.type === "ai" ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    className="prose prose-sm max-w-none prose-invert"
+                  >
                     {msg.content}
                   </ReactMarkdown>
                 ) : (
-                  <p className="text-sm">{msg.content}</p>
+                  <p className="text-sm leading-relaxed">{msg.content}</p>
                 )}
-                <span className="text-xs opacity-70 mt-1 block">
+                <span className="text-xs opacity-70 mt-2 block">
                   {formatTimestamp(msg.timestamp)}
                 </span>
               </div>
@@ -215,7 +215,7 @@ const renderCard = () => {
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
-        <div className="border-t bg-white p-4">
+        <div className="border-t border-gray-800 bg-gray-900 p-4">
           <div className="flex gap-2">
             <Input
               placeholder="Type your message..."
@@ -223,11 +223,13 @@ const renderCard = () => {
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
               disabled={isLoading}
+              className="bg-gray-800 border-gray-700 text-gray-100 focus:border-blue-500 focus:ring-blue-500 rounded-xl placeholder-gray-400"
             />
             <Button
               onClick={handleSendMessage}
               size="icon"
               disabled={isLoading}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
             >
               <Send className="h-4 w-4" />
             </Button>
@@ -235,88 +237,71 @@ const renderCard = () => {
         </div>
       </div>
 
-      {/* Card Display Area */}
-      <div className="flex-1 p-6 overflow-y-auto">{renderCard()}</div>
+      <div className="flex-1 p-6 overflow-y-auto bg-gray-900">
+        {renderCard()}
+      </div>
     </div>
   );
 };
 
-// Card Components
-
-
-
 const AgentDetailsCard: React.FC<{ data: AgentDetails }> = ({ data }) => (
-  <div className="bg-white rounded-xl shadow-md p-6">
-    <h2 className="text-2xl font-bold mb-6">{data.agentName}</h2>
-    <div className="grid grid-cols-2 gap-4">
-      <div className="p-4 bg-gray-50 rounded-lg">
-        <p className="text-sm text-gray-600">Mindshare</p>
-        <p className="text-lg font-semibold">{data.mindshare}%</p>
-      </div>
-      <div className="p-4 bg-gray-50 rounded-lg">
-        <p className="text-sm text-gray-600">Market Cap</p>
-        <p className="text-lg font-semibold">{data.marketCap}</p>
-      </div>
-      <div className="p-4 bg-gray-50 rounded-lg">
-        <p className="text-sm text-gray-600">Price</p>
-        <p className="text-lg font-semibold">{data.price}</p>
-      </div>
-      <div className="p-4 bg-gray-50 rounded-lg">
-        <p className="text-sm text-gray-600">Holders</p>
-        <p className="text-lg font-semibold">{data.holdersCount}</p>
-      </div>
+  <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 p-6 hover:shadow-xl hover:border-gray-700">
+    <h2 className="text-2xl font-bold mb-4 text-gray-100">{data.agentName}</h2>
+    <div className="grid grid-cols-2 gap-6">
+      {[
+        { label: "Mindshare", value: `${data.mindshare}%` },
+        { label: "Market Cap", value: data.marketCap },
+        { label: "Price", value: data.price },
+        { label: "Holders", value: data.holdersCount.toLocaleString() },
+      ].map((item, index) => (
+        <div
+          key={index}
+          className="p-4 bg-gray-800 rounded-xl border border-gray-700 hover:border-blue-500"
+        >
+          <p className="text-sm text-gray-400 mb-1">{item.label}</p>
+          <p className="text-lg font-semibold text-gray-100">{item.value}</p>
+        </div>
+      ))}
     </div>
   </div>
 );
 
 const AgentsListCard: React.FC<{ agents: AgentListItem[] }> = ({ agents }) => (
-  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+  <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ">
     {agents.map((agent, idx) => (
       <div
         key={idx}
-        className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-shadow"
+        className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 p-5 hover:shadow-xl hover:border-blue-500 transition-all"
       >
-        <h3 className="font-semibold text-lg mb-3">{agent.name}</h3>
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Mindshare</span>
-            <span className="text-blue-600 font-semibold">
-              {agent.mindshare}%
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Market Cap</span>
-            <span className="text-blue-600 font-semibold">
-              {agent.marketCap}
-            </span>
-          </div>
+        <h3 className="font-semibold text-lg mb-3 text-gray-100">
+          {agent.name}
+        </h3>
+        <div className="space-y-3">
+          {[
+            { label: "Mindshare", value: `${agent.mindshare}%` },
+            { label: "Market Cap", value: agent.marketCap },
+          ].map((item, index) => (
+            <div
+              key={index}
+              className="flex justify-between items-center p-2 rounded-xl bg-gray-800"
+            >
+              <span className="text-gray-400">{item.label}</span>
+              <span className="text-blue-400 font-semibold">{item.value}</span>
+            </div>
+          ))}
         </div>
       </div>
     ))}
   </div>
 );
 
-
-// Error Card Component
 const ErrorCard: React.FC<{ message: string }> = ({ message }) => (
-  <div className="bg-white rounded-xl shadow-md p-6">
-    <div className="flex items-center gap-3 text-red-500 mb-4">
-      <svg
-        className="w-6 h-6"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      </svg>
+  <div className="bg-gray-900 rounded-2xl shadow-lg border border-red-900 p-6">
+    <div className="flex items-center gap-3 text-red-400 mb-3">
+      <AlertCircle className="w-6 h-6" />
       <h3 className="font-semibold text-lg">Error Loading Data</h3>
     </div>
-    <p className="text-gray-600">{message}</p>
+    <p className="text-gray-400">{message}</p>
   </div>
 );
 
